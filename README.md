@@ -80,9 +80,43 @@ You need [mamba](https://github.com/conda-forge/miniforge) (or conda) on Linux. 
 git clone https://github.com/MuhammadMuneeb007/GWAS2m-lncRNA.git gwas2m-lncrna
 cd gwas2m-lncrna
 mamba env create -f environment.yml      # Python package + PLINK2 + R/susieR + VEP 116
-mamba activate gwas2m-lncrna
-gwas2m-lncrna check                           # lists tools and reference data
+conda activate gwas2m-lncrna             # or: mamba activate gwas2m-lncrna
+gwas2m-lncrna check                      # lists tools and reference data
 ```
+
+Run `mamba env create` from inside the cloned folder. Its last line installs the package itself.
+
+### Install troubleshooting
+
+**`critical libmamba Shell not initialized` at the end of `mamba env create`.** The environment was created
+correctly; mamba just couldn't switch your terminal into it. Activate it with conda, which is usually already set
+up on clusters:
+
+```bash
+conda activate gwas2m-lncrna
+```
+
+Or set up mamba for the current shell first:
+
+```bash
+eval "$(mamba shell hook --shell bash)"
+mamba activate gwas2m-lncrna
+```
+
+To make `mamba activate` work in every new shell, run `mamba shell init --shell bash` once.
+
+**`gwas2m-lncrna: command not found`.** Look at your prompt. If it shows another environment, for example
+`(base)`, activate `gwas2m-lncrna` as above. If the right environment is active and the command is still missing,
+the pip step was interrupted. Finish it from the cloned folder:
+
+```bash
+pip install gwaslab==4.2.3 "polars[rtcompat]" -e .
+```
+
+**Messages you can ignore.** VEP prints a note about `vep_install`, but `gwas2m-lncrna setup` downloads the VEP
+cache for you. Open MPI prints a note about CUDA/UCX support. Mamba may warn that MySQL files "were already
+present". MySQL, Open MPI, t-coffee and similar packages arrive as dependencies of VEP and BioPerl; they use
+disk space but are not otherwise used.
 
 ## Reference data
 

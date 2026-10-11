@@ -17,7 +17,7 @@ ANCESTRY="EUR"
 
 # Activate the environment created with: mamba env create -f environment.yml
 eval "$(mamba shell hook --shell bash 2>/dev/null || conda shell.bash hook)"
-mamba activate gwas2m-lncrna 2>/dev/null || conda activate gwas2m-lncrna
+conda activate gwas2m-lncrna 2>/dev/null || mamba activate gwas2m-lncrna
 
 # Run from the folder holding gwas2m-lncrna.yaml (or add --config /path/to/gwas2m-lncrna.yaml).
 cd "$SLURM_SUBMIT_DIR"

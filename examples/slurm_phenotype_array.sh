@@ -24,7 +24,7 @@ if [[ -z "$PHENOTYPE" ]]; then
 fi
 
 eval "$(mamba shell hook --shell bash 2>/dev/null || conda shell.bash hook)"
-mamba activate gwas2m-lncrna 2>/dev/null || conda activate gwas2m-lncrna
+conda activate gwas2m-lncrna 2>/dev/null || mamba activate gwas2m-lncrna
 cd "$SLURM_SUBMIT_DIR"
 
 gwas2m-lncrna run -p "$PHENOTYPE" -a "$ANCESTRY" --threads "${SLURM_CPUS_PER_TASK:-4}"
