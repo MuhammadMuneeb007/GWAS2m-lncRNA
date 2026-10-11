@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gwas2m-lncrna"
+version = "0.1.0"
+description = "A transcript-aware framework for characterizing long non-coding RNA overlap in fine-mapped GWAS signals"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Muhammad Muneeb" }]
+dependencies = [
+    "pandas>=1.5",
+    "numpy>=1.23",
+    "requests>=2.28",
+    "urllib3>=1.26",
+    "pyyaml>=6",
+    "openpyxl>=3.1",
+    "gwaslab",
+]
+
+[project.urls]
+Homepage = "https://github.com/MuhammadMuneeb007/GWAS2m-lncRNA"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.scripts]
+gwas2m-lncrna = "gwas2m_lncrna.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+gwas2m_lncrna = ["data/*.yaml", "data/*.R"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,42 @@
+# Create everything (Python package + PLINK2 + R/susieR + VEP) in one step:
+#
+#     mamba env create -f environment.yml
+#     mamba activate gwas2m-lncrna
+#
+# Run the command from this folder: the last line installs gwas2m-lncrna itself.
+# Linux or macOS (Intel) only - ensembl-vep and plink2 are not built for Windows.
+
+name: gwas2m-lncrna
+
+channels:
+  - conda-forge
+  - bioconda
+
+dependencies:
+  - python=3.11
+  - pandas
+  - numpy
+  - requests
+  - urllib3
+  - pyyaml
+  - openpyxl
+  - pytest
+
+  # Genomics tools
+  - plink2
+  - samtools
+  - htslib
+
+  # Ensembl VEP; the cache gwas2m-lncrna downloads must match this release
+  # (annotation.vep_cache_release in gwas2m-lncrna.yaml).
+  - ensembl-vep=116
+
+  # SuSiE-RSS fine-mapping
+  - r-base
+  - r-susier
+
+  - pip
+  - pip:
+      - gwaslab==4.2.3
+      - polars[rtcompat]
+      - -e .
