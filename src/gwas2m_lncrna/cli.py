@@ -38,6 +38,9 @@ def _common(parser: argparse.ArgumentParser, phenotype: str = "one") -> None:
 
 def _step_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--study", action="append", help="restrict to GCST accession(s); repeatable")
+    parser.add_argument("--index", type=int, action="append",
+                        help="restrict to the study with this number from `status` (1..N); repeatable. "
+                             "Use with $SLURM_ARRAY_TASK_ID to run one GWAS per array task")
     parser.add_argument("--force", action="store_true", help="redo work even if outputs exist")
 
 
@@ -61,6 +64,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("check", help="show tools, resources and configuration")
     _common(p, phenotype="none")
+    p.add_argument("--ready", action="store_true",
+                   help="with --ancestry: exit 0 if the LD panel, VEP cache and genome are ready, else 3 (for scripts)")
 
     p = sub.add_parser("setup", help="download/build reference data (1000G LD, VEP cache, genome, GENCODE)")
     _common(p, phenotype="none")
@@ -90,8 +95,9 @@ def build_parser() -> argparse.ArgumentParser:
         if number == 1:
             _discover_options(p)
 
-    p = sub.add_parser("status", help="per-study step status for a phenotype")
+    p = sub.add_parser("status", help="studies of a phenotype with their index and per-step status")
     _common(p)
+    p.add_argument("--count", action="store_true", help="print only the number of studies (for array sizes)")
 
     p = sub.add_parser("analysis", help="write report.html + report_tables.xlsx + variants.tsv.gz")
     _common(p, phenotype="many")
@@ -103,6 +109,14 @@ def _config(args):
     overrides = {"threads": getattr(args, "threads", None), "jobs": getattr(args, "jobs", None),
                  "output_dir": getattr(args, "output_dir", None)}
     return load_config(getattr(args, "config", None), overrides)
+
+
+def _selected_studies(project, args) -> list[str] | None:
+    """GCST accessions chosen with --study and/or --index (None = all studies)."""
+    chosen = list(args.study or [])
+    if getattr(args, "index", None):
+        chosen += project.accessions_for(args.index)
+    return chosen or None
 
 
 def _discover_kwargs(args) -> dict:
@@ -130,6 +144,19 @@ def dispatch(args) -> int:
 
     cfg = _config(args)
     from gwas2m_lncrna.project import Project
+
+    if args.command == "check" and args.ready:
+        from gwas2m_lncrna.common import canonical_ancestry
+        from gwas2m_lncrna.resources import Resources
+        if not args.ancestry:
+            raise Gwas2RnaError("check --ready needs --ancestry (e.g. --ancestry EUR).")
+        resources = Resources(cfg)
+        code = canonical_ancestry(args.ancestry)[0]
+        missing = [name for name, ok in ((f"1000G {code} LD panel", resources.ld_ready(code)),
+                                         ("VEP cache", resources.vep_ready()),
+                                         ("GRCh38 FASTA", resources.fasta_ready())) if not ok]
+        print("READY" if not missing else "MISSING: " + ", ".join(missing))
+        return 0 if not missing else 3
 
     if args.command == "check":
         import pandas as pd
@@ -163,11 +190,15 @@ def dispatch(args) -> int:
 
     if args.command == "run":
         from gwas2m_lncrna.pipeline import run_pipeline
+        if args.index and len(args.phenotype) > 1:
+            raise Gwas2RnaError("--index refers to one phenotype's study list; give a single --phenotype.")
         failed = []
         for phenotype in args.phenotype:
             try:
-                run_pipeline(Project(cfg, phenotype, args.ancestry), args.from_step, args.to_step, args.force,
-                             args.refresh_discovery, args.study, _discover_kwargs(args))
+                project = Project(cfg, phenotype, args.ancestry)
+                selected = _selected_studies(project, args)
+                run_pipeline(project, args.from_step, args.to_step, args.force,
+                             args.refresh_discovery, selected, _discover_kwargs(args))
             except Gwas2RnaError as exc:
                 if len(args.phenotype) == 1:
                     raise
@@ -184,6 +215,9 @@ def dispatch(args) -> int:
 
     if args.command == "status":
         project = Project(cfg, args.phenotype, args.ancestry)
+        if args.count:
+            print(len(project.studies()))
+            return 0
         banner(f"STATUS | {project.phenotype} | {project.ancestry_code}")
         table = project.status_table()
         print(table.to_string(index=False) if not table.empty else "No studies yet.")
@@ -198,7 +232,8 @@ def dispatch(args) -> int:
         from gwas2m_lncrna.pipeline import run_step
         project = Project(cfg, args.phenotype, args.ancestry)
         options = _discover_kwargs(args) if args.step_number == 1 else None
-        run_step(project, args.step_number, args.force, args.study, options)
+        selected = _selected_studies(project, args) if args.step_number > 1 else None
+        run_step(project, args.step_number, args.force, selected, options)
         return 0
 
     raise Gwas2RnaError(f"Unknown command {args.command}")

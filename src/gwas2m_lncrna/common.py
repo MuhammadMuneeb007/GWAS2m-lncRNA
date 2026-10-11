@@ -83,7 +83,8 @@ def read_json(path: Path) -> dict:
 def write_json(path: Path, payload: Any) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
+    # Per-process temporary name: parallel jobs may write the same file.
+    temporary = path.with_name(f"{path.name}.{os.getpid()}.tmp")
     temporary.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     os.replace(temporary, path)
 

@@ -256,7 +256,57 @@ in [`examples/uq/`](examples/uq/) use the UQ HPC settings by default: partition 
 | `uq_setup.sh` | Download and build the reference data once | 4 CPUs, 32 GB, 24 h |
 | `uq_one_phenotype.sh` | Steps 1–7 and the report for one phenotype | 8 CPUs, 100 GB, 24 h |
 | `uq_phenotype_array.sh` | One array task per line of `examples/phenotypes.txt` | 8 CPUs, 100 GB, 24 h |
+| `uq_submit_per_gwas.sh` | **One job per GWAS** for every phenotype (run on the login node, see below) | – |
+| `uq_one_gwas.sh` | Steps 2–7 for one GWAS (array task = study index) | 8 CPUs, 100 GB, 24 h |
+| `uq_report.sh` | Combined report once all GWAS jobs have finished | 2 CPUs, 32 GB, 24 h |
 | `gwas2m-lncrna.uq.yaml` | UQ sample configuration (8 threads, results under the submit folder) | – |
+
+### Run every GWAS in parallel (one job per GWAS)
+
+Step 1 finds the GWAS for a phenotype and numbers them 1..N. Every later step works on one study at a time, so
+each GWAS can run as its own array task. Task *i* runs steps 2–7 for study *i*.
+
+**Automatically, for every phenotype in a list.** Run this on the login node, from the folder where results go:
+
+```bash
+MAX_STUDIES=5 bash /path/to/GWAS2m-lncRNA/examples/uq/uq_submit_per_gwas.sh
+```
+
+For each phenotype in `examples/phenotypes.txt` (or the file in `PHENOTYPE_FILE`), the script:
+
+1. submits `uq_setup.sh` first if the reference data isn't ready, and makes every other job wait for it;
+2. runs Step 1 discovery, prints the studies with their `INDEX`, and submits `uq_one_gwas.sh` as `--array=1-N`;
+3. submits `uq_report.sh`, which writes one combined report after every GWAS job has finished, including
+   jobs that resubmitted themselves.
+
+Other options: `MAX_PARALLEL=4` (at most 4 GWAS jobs at once per phenotype), `REFRESH_DISCOVERY=1` and `ANCESTRY=EUR`.
+
+**By hand, step by step.** Use this to check the study list before submitting:
+
+```bash
+# 1. find the GWAS (Step 1) and list them with their index
+gwas2m-lncrna discover -p "coronary artery disease" -a EUR --max-studies 5
+gwas2m-lncrna status   -p "coronary artery disease" -a EUR          # INDEX  STUDY_ACCESSION  TRAIT  steps...
+N=$(gwas2m-lncrna status -p "coronary artery disease" -a EUR --count)
+
+# 2. reference data once (skip if `gwas2m-lncrna check --ready --ancestry EUR` prints READY)
+sbatch examples/uq/uq_setup.sh
+
+# 3. one array task per GWAS: task i runs steps 2-7 for study i
+PHENOTYPE="coronary artery disease" sbatch --array=1-$N examples/uq/uq_one_gwas.sh
+
+# 4. when all tasks have finished
+gwas2m-lncrna analysis -p "coronary artery disease" -a EUR
+```
+
+One study can also be run directly, without SLURM:
+
+```bash
+gwas2m-lncrna run -p "coronary artery disease" -a EUR --from-step 2 --index 3
+```
+
+Each study writes only its own outputs and status files, so tasks don't interfere. `gwas2m-lncrna status` shows
+the progress of every study at any time.
 
 Run these from the folder where results should go, using `/scratch` or a project folder, not your home folder:
 

@@ -26,7 +26,7 @@ def run_step(project: Project, number: int, force: bool = False, studies_filter:
         result = discover(project, force=force, **(discover_options or {}))
         return Counter({"COMPLETE": result["n_eligible"]})
     if number == 4:
-        prepare_ld_reference(project)
+        prepare_ld_reference(project, studies_filter)
         return Counter({"COMPLETE": 1})
 
     studies = project.studies(studies_filter)
@@ -64,6 +64,8 @@ def run_pipeline(project: Project, from_step: int = 1, to_step: int = 7, force: 
     print(f"Results       : {project.root}")
     print(f"Resources     : {project.cfg.resources_dir}")
     print(f"Threads/jobs  : {project.cfg.threads} / {project.cfg.jobs}")
+    if studies_filter:
+        print(f"Studies       : {', '.join(studies_filter)}")
 
     # Prepare shared resources first so a missing tool/resource fails early,
     # not hours into the run.
@@ -79,5 +81,7 @@ def run_pipeline(project: Project, from_step: int = 1, to_step: int = 7, force: 
 
     banner("PIPELINE FINISHED - STUDY STATUS")
     table = project.status_table()
+    if studies_filter and not table.empty:
+        table = table[table["STUDY_ACCESSION"].str.upper().isin({s.upper() for s in studies_filter})]
     print(table.to_string(index=False) if not table.empty else "No studies.")
     print(f"\nNext: gwas2m-lncrna analysis --phenotype \"{project.phenotype}\" --ancestry {project.ancestry_code}")

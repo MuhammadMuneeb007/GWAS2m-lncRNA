@@ -147,3 +147,50 @@ def test_download_resumes(tmp_path):
         assert download(url, target) == "SKIPPED_ALREADY_COMPLETE"
     finally:
         server.shutdown()
+
+
+def _serve(directory):
+    handler = type("H", (RangeHandler,), {"directory_path": directory})
+    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(handler, directory=str(directory)))
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server
+
+
+def test_per_gwas_selection_by_index(make_config, tmp_path, capsys):
+    """One array task = one study: --index N runs only the N-th study from `status`."""
+    served = tmp_path / "served"
+    served.mkdir()
+    for acc in ("GCST1", "GCST2", "GCST3"):
+        (served / f"{acc}.h.tsv.gz").write_bytes(acc.encode() * 100)
+    server = _serve(served)
+    try:
+        cfg = make_config()
+        project = Project(cfg, "migraine", "EUR")
+        build_manifest(project, [("GCST1", "Migraine"), ("GCST2", "Migraine"), ("GCST3", "Migraine")])
+        manifest = pd.read_csv(project.manifest_path, sep="\t")
+        manifest["DOWNLOAD_URL"] = [f"http://127.0.0.1:{server.server_address[1]}/{a}.h.tsv.gz"
+                                    for a in manifest["STUDY_ACCESSION"]]
+        manifest.to_csv(project.manifest_path, sep="\t", index=False)
+        config = str(cfg.source)
+
+        assert main(["status", "--config", config, "-p", "migraine", "-a", "EUR", "--count"]) == 0
+        assert capsys.readouterr().out.strip() == "3"
+        assert main(["status", "--config", config, "-p", "migraine", "-a", "EUR"]) == 0
+        assert "INDEX" in capsys.readouterr().out
+
+        assert main(["download", "--config", config, "-p", "migraine", "-a", "EUR", "--index", "2"]) == 0
+        assert [project.step_status(a, "download") for a in ("GCST1", "GCST2", "GCST3")] == \
+            ["NOT_RUN", "COMPLETE", "NOT_RUN"]
+        assert (project.sumstats_dir / "GCST2" / "GCST2.h.tsv.gz").is_file()
+        assert not (project.sumstats_dir / "GCST1").exists()
+
+        assert main(["download", "--config", config, "-p", "migraine", "-a", "EUR", "--index", "9"]) == 2
+        assert "valid indices are 1-3" in capsys.readouterr().err
+    finally:
+        server.shutdown()
+
+
+def test_check_ready_reports_missing_resources(make_config, capsys):
+    cfg = make_config(resources={"auto_download": False})
+    assert main(["check", "--config", str(cfg.source), "--ready", "--ancestry", "EUR"]) == 3
+    assert "MISSING" in capsys.readouterr().out

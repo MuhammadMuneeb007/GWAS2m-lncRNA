@@ -106,6 +106,23 @@ class Project:
             rows = [r for r in rows if r["STUDY_ACCESSION"].upper() in wanted]
         return rows
 
+    def index_of(self, study: dict, position: int) -> int:
+        """Study number shown by `status` (ARRAY_ID in the manifest, else row position)."""
+        try:
+            return int(float(study.get("ARRAY_ID", "") or position))
+        except ValueError:
+            return position
+
+    def accessions_for(self, indices: list[int]) -> list[str]:
+        """Map study numbers (1..N, as listed by `status`) to GCST accessions."""
+        by_index = {self.index_of(s, i): s["STUDY_ACCESSION"] for i, s in enumerate(self.studies(), start=1)}
+        missing = [i for i in indices if i not in by_index]
+        if missing:
+            raise Gwas2RnaError(
+                f"No study with index {', '.join(map(str, missing))} for {self.phenotype} / {self.ancestry_code}; "
+                f"valid indices are 1-{len(by_index)} (see `gwas2m-lncrna status`).")
+        return [by_index[i] for i in indices]
+
     # ---------------------------------------------------------------- status
     def status_path(self, accession: str, step: str) -> Path:
         return self.audit_dir / "status" / accession / f"{STAGE_NAMES[step]}.json"
@@ -135,10 +152,11 @@ class Project:
 
     def status_table(self) -> pd.DataFrame:
         rows = []
-        for study in self.studies():
+        for position, study in enumerate(self.studies(), start=1):
             accession = study["STUDY_ACCESSION"]
             record = self.status(accession)
-            row = {"STUDY_ACCESSION": accession, "TRAIT": study.get("DISEASE_TRAIT", "")}
+            row = {"INDEX": self.index_of(study, position), "STUDY_ACCESSION": accession,
+                   "TRAIT": study.get("DISEASE_TRAIT", "")}
             for step in STUDY_STEPS:
                 row[STAGE_NAMES[step]] = str(record.get(step, {}).get("status", "NOT_RUN"))
             blockers = [f"{STAGE_NAMES[s]}: {record[s].get('reason', '')}" for s in STUDY_STEPS
