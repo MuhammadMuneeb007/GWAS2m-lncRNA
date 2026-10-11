@@ -188,7 +188,8 @@ phenotypes you give, and writes three files to `results/reports/<phenotypes>_<AN
 Each analysis file can also be run on its own, exactly as before. It prints its results and returns its tables:
 
 ```bash
-python -m gwas2m_lncrna.analysis.Analysis05_John_lncRNA_Exon_Intron_Distribution     -p "coronary artery disease" -p "Parkinson's disease" -a EUR
+python -m gwas2m_lncrna.analysis.Analysis05_John_lncRNA_Exon_Intron_Distribution \
+    -p "coronary artery disease" -p "Parkinson's disease" -a EUR
 ```
 
 Results you already produced with GWAS2m use the same folder layout, so you can analyse them directly by
