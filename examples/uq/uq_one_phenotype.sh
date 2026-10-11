@@ -3,6 +3,7 @@
 #
 #     PHENOTYPE="coronary artery disease" sbatch examples/uq/uq_one_phenotype.sh
 #     PHENOTYPE="Parkinson's disease" ANCESTRY=EUR sbatch examples/uq/uq_one_phenotype.sh
+#     PHENOTYPE="coronary artery disease" MAX_STUDIES=5 sbatch examples/uq/uq_one_phenotype.sh   # top 5 GWAS
 #
 # Submit from the folder where results should go (or that holds gwas2m-lncrna.yaml).
 # Defaults below are the UQ settings (partition "general", 24 h). If a run needs
@@ -31,4 +32,4 @@ source "$UQ_DIR/uq_common.sh"
 
 echo "Phenotype    : $PHENOTYPE ($ANCESTRY)"
 run_with_resubmit gwas2m-lncrna run -p "$PHENOTYPE" -a "$ANCESTRY" \
-    --threads "${SLURM_CPUS_PER_TASK:-8}" --analysis
+    --threads "${SLURM_CPUS_PER_TASK:-8}" --analysis ${DISCOVERY_ARGS[@]+"${DISCOVERY_ARGS[@]}"}

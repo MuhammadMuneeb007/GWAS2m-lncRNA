@@ -126,3 +126,11 @@ def test_uq_sample_config_is_valid(monkeypatch, tmp_path):
     assert cfg.output_dir == (tmp_path / "results").resolve()
     assert cfg.resources_dir == (tmp_path / "resources").resolve()
     assert cfg.threads == 8 and cfg.jobs == 1
+
+
+def test_top5_example_config(monkeypatch, tmp_path):
+    repo = Path(__file__).resolve().parents[1]
+    monkeypatch.setenv("PWD", str(tmp_path))
+    cfg = load_config(str(repo / "examples" / "config_top5.yaml"))
+    assert cfg["discovery"]["max_studies"] == 5
+    assert cfg.output_dir == (tmp_path / "results").resolve()

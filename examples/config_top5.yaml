@@ -1,0 +1,96 @@
+# =============================================================================
+# GWAS2m-lncRNA example: run ALL steps (1-7) on the TOP 5 GWAS of each phenotype
+#
+#     gwas2m-lncrna run -p "coronary artery disease" -a EUR --config examples/config_top5.yaml --analysis
+#
+# Every step's parameters are below, grouped by step. `run` reads all of them;
+# nothing has to be passed per step. "Top 5" = the 5 eligible GWAS Catalog
+# studies with the best trait match, then the largest sample size.
+# Values other than discovery.max_studies are the package defaults.
+# =============================================================================
+
+# Results folder, using the original GWAS2m layout
+# (01_gwas_catalog/, 02_summary_stats/, ..., 07_annotation/, pipeline_audit/, reports/).
+# Point this at an existing GWAS2m folder to analyse or resume results produced earlier.
+output_dir: "${PWD}/results"          # the folder you run the command from
+
+# Shared reference data (1000 Genomes LD panels, VEP cache, genome, GENCODE).
+# Needs roughly 80 GB free while the VEP cache is unpacked, about 50 GB afterwards.
+# Point this at an existing GWAS2m "resources" folder to reuse its downloads.
+resources_dir: "${PWD}/resources"
+
+# Threads given to each PLINK2 / VEP / GWASLab call.
+threads: 4
+
+# GWAS studies processed at the same time inside one step (memory-bound for QC).
+jobs: 1
+
+resources:
+  # Download/build missing resources automatically when a step needs them.
+  # Set false on shared clusters where an administrator prepares resources.
+  auto_download: true
+  # Parallel file downloads during setup.
+  download_workers: 4
+  # Keep the raw 1000 Genomes VCFs (~15 GB) after the LD panels are built.
+  # They are only needed to build a panel for another ancestry later.
+  keep_raw_1000g_vcf: true
+  # Delete the 27.6 GB VEP cache archive after it has been unpacked.
+  delete_vep_archive: true
+  # Optional existing copies (leave null to use/download inside resources_dir).
+  vep_cache_dir: null          # folder containing homo_sapiens/116_GRCh38
+  fasta: null                  # indexed GRCh38 FASTA (.fa with .fa.fai)
+  gencode_gtf: null            # GENCODE GRCh38 gene annotation (.gtf.gz)
+  ld_reference_dir: null       # folder containing <ANC>/chr<N>_<ANC>_GRCh38.pgen
+
+# External programs. null = use the copy on PATH (installed by environment.yml).
+tools:
+  plink2: null
+  rscript: null
+  vep: null
+  samtools: null
+
+# Step 1 - GWAS Catalog discovery
+discovery:
+  aliases: []                  # extra search terms, e.g. ["coronary heart disease"]
+  max_studies: 5               # keep the top 5 eligible studies (0 = every eligible study)
+  refresh_catalog: false       # re-download the GWAS Catalog metadata tables
+
+# Step 3 - GWASLab QC
+qc:
+  p_threshold: 5.0e-8
+
+# Step 5 - LD clumping (PLINK2)
+clumping:
+  p1: 5.0e-8
+  p2: 0.01
+  r2: 0.1
+  kb: 1000
+
+# Step 6 - SuSiE-RSS fine-mapping
+finemapping:
+  locus_window_kb: 1000
+  reference_maf: 0.01
+  reference_geno: 0.05
+  min_variants: 10
+  max_ld_variants: 15000
+  coverage: 0.95
+  susie_L: 10
+  max_susie_L: 20
+  ld_ridge: 1.0e-4
+  estimate_s_max_variants: 5000
+  sample_size: null            # last-resort N when GWAS Catalog metadata has none
+
+# Step 7 - VEP annotation
+annotation:
+  vep_cache_release: 116
+  min_pip: 0.01                # priority flag only; every fine-mapped variant is annotated
+  allow_partial: false         # annotate studies where some loci failed fine-mapping
+
+# gwas2m-lncrna analysis - final report
+analysis:
+  permutations: 10000          # Monte Carlo draws for the within-locus enrichment test
+  seed: 42
+  bin_kb: 0                    # 0 = stratify by locus; e.g. 250 = locus + 250 kb bins
+  legacy_lncrna_biotypes: false
+  min_annotation_coverage: 0.90
+  top: 25                      # rows in "top" tables

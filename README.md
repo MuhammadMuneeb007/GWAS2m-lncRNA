@@ -152,6 +152,56 @@ The file holds the output and resource folders, threads, tool paths and the scie
 step. The phenotype and ancestry are given on the command line, so one file serves every run. Command-line
 `--threads`, `--jobs` and `--output-dir` override the file.
 
+### All steps are set in one file
+
+You never pass parameters per step. `gwas2m-lncrna run` reads every step's settings from the configuration file:
+
+| Section | Step | Parameters |
+|---|---|---|
+| `threads`, `jobs` | all | cores per tool call; GWAS studies run side by side |
+| `discovery` | 1 | `max_studies` (number of GWAS per phenotype, 0 = all), `aliases`, `refresh_catalog` |
+| `resources` | 2, 4 | download workers; reuse of existing 1000G / VEP / genome / GENCODE files |
+| `qc` | 3 | `p_threshold` |
+| `clumping` | 5 | `p1`, `p2`, `r2`, `kb` |
+| `finemapping` | 6 | `locus_window_kb`, `reference_maf`, `reference_geno`, `min_variants`, `max_ld_variants`, `coverage`, `susie_L`, `max_susie_L`, `ld_ridge`, `sample_size` |
+| `annotation` | 7 | `vep_cache_release`, `min_pip`, `allow_partial` |
+| `analysis` | report | `permutations`, `seed`, `bin_kb`, `top`, ... |
+
+Keys you leave out keep their default, and a misspelled key stops the run with an error.
+
+On the command line, `--max-studies`, `--alias` and `--refresh-catalog` override the `discovery` section for one run.
+If you change a parameter after a step has finished, add `--force` to redo it, or `--refresh-discovery` for Step 1.
+Otherwise finished work is skipped. Fine-mapping is the exception: it re-runs the affected loci on its own.
+
+### Example: run all steps on the top 5 GWAS
+
+[`examples/config_top5.yaml`](examples/config_top5.yaml) is a complete configuration with every step's parameters.
+It sets `discovery.max_studies: 5`, so each phenotype uses its top 5 eligible GWAS: best trait match first, then the
+largest sample size. Results go to `results/` in the folder you run from.
+
+```bash
+gwas2m-lncrna run -p "coronary artery disease" -a EUR --config examples/config_top5.yaml --analysis
+```
+
+To keep your own copy, run `cp examples/config_top5.yaml my_config.yaml`, edit any step's values, and use
+`--config my_config.yaml`.
+
+You can also set the same limit for a single run, with any configuration:
+
+```bash
+gwas2m-lncrna run -p "Parkinson's disease" -a EUR --max-studies 5 --analysis
+```
+
+On the UQ HPC, set `MAX_STUDIES` when you submit:
+
+```bash
+PHENOTYPE="coronary artery disease" MAX_STUDIES=5 sbatch examples/uq/uq_one_phenotype.sh
+MAX_STUDIES=5 sbatch --array=1-3 examples/uq/uq_phenotype_array.sh      # top 5 for each phenotype in the list
+```
+
+If a phenotype was already discovered with a different number of studies, add `--refresh-discovery`, or
+`REFRESH_DISCOVERY=1` for the UQ scripts. Studies that already finished are kept.
+
 ## Running
 
 ```bash

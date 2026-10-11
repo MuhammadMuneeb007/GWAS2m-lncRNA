@@ -48,10 +48,23 @@ else
 fi
 export GWAS2M_LNCRNA_CONFIG="$CONFIG"
 
+# Optional: MAX_STUDIES=5 runs only the top 5 GWAS per phenotype (overrides
+# discovery.max_studies in the configuration). For a phenotype that was already
+# discovered with a different number, also set REFRESH_DISCOVERY=1 (applied on the
+# first attempt only, so resubmitted jobs do not search the catalog again).
+DISCOVERY_ARGS=()
+if [[ -n "${MAX_STUDIES:-}" ]]; then
+    DISCOVERY_ARGS+=(--max-studies "$MAX_STUDIES")
+fi
+if [[ "${REFRESH_DISCOVERY:-0}" == 1 && "$GWAS2M_ATTEMPT" == 1 ]]; then
+    DISCOVERY_ARGS+=(--refresh-discovery)
+fi
+
 echo "Job          : ${SLURM_JOB_ID:-local} (attempt $GWAS2M_ATTEMPT of $((GWAS2M_MAX_RESUBMIT + 1)))"
 echo "Host         : $(hostname)"
 echo "Working dir  : $PWD"
 echo "Configuration: $CONFIG"
+echo "GWAS limit   : ${MAX_STUDIES:-from configuration (discovery.max_studies)}"
 
 run_with_resubmit() {
     local status=0

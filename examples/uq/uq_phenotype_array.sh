@@ -5,6 +5,7 @@
 #  2. Then, after it finishes:
 #        sbatch --array=1-$(grep -c . examples/phenotypes.txt) examples/uq/uq_phenotype_array.sh
 #     (PHENOTYPE_FILE=my_list.txt sbatch --array=1-N ...  for your own list)
+#     (MAX_STUDIES=5 sbatch --array=1-N ...  runs only the top 5 GWAS per phenotype)
 #  3. When every task has finished, write one combined report:
 #        gwas2m-lncrna analysis -p "coronary artery disease" -p "Parkinson's disease" -a EUR \
 #            --config examples/uq/gwas2m-lncrna.uq.yaml
@@ -34,4 +35,5 @@ if [[ -z "$PHENOTYPE" ]]; then
     exit 1
 fi
 echo "Phenotype    : $PHENOTYPE ($ANCESTRY)"
-run_with_resubmit gwas2m-lncrna run -p "$PHENOTYPE" -a "$ANCESTRY" --threads "${SLURM_CPUS_PER_TASK:-8}"
+run_with_resubmit gwas2m-lncrna run -p "$PHENOTYPE" -a "$ANCESTRY" --threads "${SLURM_CPUS_PER_TASK:-8}" \
+    ${DISCOVERY_ARGS[@]+"${DISCOVERY_ARGS[@]}"}
