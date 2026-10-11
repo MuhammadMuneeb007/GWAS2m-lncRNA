@@ -194,17 +194,50 @@ python -m gwas2m_lncrna.analysis.Analysis05_John_lncRNA_Exon_Intron_Distribution
 Results you already produced with GWAS2m use the same folder layout, so you can analyse them directly by
 pointing `output_dir` (or `--root`) at that GWAS2m folder.
 
-## Using a cluster (SLURM, PBS, LSF)
+## Using a cluster (UQ HPC by default)
 
-gwas2m-lncrna never submits jobs itself. It runs in whatever process you start, so you put the normal command
-inside your scheduler's job script. Ready-to-edit examples are in [`examples/`](examples/):
+gwas2m-lncrna never submits jobs itself. You put the normal command inside a job script. The ready-made scripts
+in [`examples/uq/`](examples/uq/) use the UQ HPC settings by default: partition `general` and a maximum time of
+24:00:00.
 
-* `slurm_one_phenotype.sh` runs one phenotype end to end.
-* `slurm_phenotype_array.sh` runs one array task per line of `phenotypes.txt`.
+| File | Purpose | Default resources |
+|---|---|---|
+| `uq_setup.sh` | Download and build the reference data once | 4 CPUs, 32 GB, 24 h |
+| `uq_one_phenotype.sh` | Steps 1–7 and the report for one phenotype | 8 CPUs, 100 GB, 24 h |
+| `uq_phenotype_array.sh` | One array task per line of `examples/phenotypes.txt` | 8 CPUs, 100 GB, 24 h |
+| `gwas2m-lncrna.uq.yaml` | UQ sample configuration (8 threads, results under the submit folder) | – |
 
-Run `gwas2m-lncrna setup --ancestry EUR` once before starting many jobs, so they do not all wait on the same
-downloads. Within a job, `threads` sets how many cores each tool uses and `jobs` sets how many GWAS studies run
-side by side. Request about `threads × jobs` cores.
+Run these from the folder where results should go, using `/scratch` or a project folder, not your home folder:
+
+```bash
+sbatch /path/to/GWAS2m-lncRNA/examples/uq/uq_setup.sh            # once (ANCESTRY=AFR ... for other panels)
+
+PHENOTYPE="coronary artery disease" sbatch /path/to/GWAS2m-lncRNA/examples/uq/uq_one_phenotype.sh
+
+sbatch --array=1-3 /path/to/GWAS2m-lncRNA/examples/uq/uq_phenotype_array.sh   # one task per phenotype
+gwas2m-lncrna analysis -p "coronary artery disease" -p "Parkinson's disease" -p "Alzheimer's disease" -a EUR \
+    --config /path/to/GWAS2m-lncRNA/examples/uq/gwas2m-lncrna.uq.yaml          # combined report afterwards
+```
+
+**What the scripts do:**
+
+* **Configuration.** They use the first of these that exists:
+  1. `$GWAS2M_LNCRNA_CONFIG`
+  2. a `gwas2m-lncrna.yaml` in the submit folder
+  3. the UQ sample `examples/uq/gwas2m-lncrna.uq.yaml`
+* **Environment.** They activate `gwas2m-lncrna` with conda (or mamba). If you submit from a shell where it is
+  already active, they skip this step.
+* **The 24-hour limit.** A run that needs longer stops itself after 23 hours and resubmits the same job, or for
+  arrays the same task. The next job skips finished studies and loci, so it carries on where the previous one
+  stopped. This repeats up to 10 times. You can change this with `GWAS2M_TIME_LIMIT` (default `23h`) and
+  `GWAS2M_MAX_RESUBMIT` (default `10`).
+
+**Other clusters.** Override the defaults on the `sbatch` command line, for example
+`sbatch --partition=short --time=12:00:00 --account=a_mygroup ...`. Set `GWAS2M_TIME_LIMIT` about an hour below the
+new walltime.
+
+**Cores.** Within a job, `threads` sets how many cores each tool uses and `jobs` sets how many GWAS studies run side
+by side. Request about `threads × jobs` CPUs.
 
 ## Output layout
 

@@ -117,3 +117,12 @@ def test_analysis07_null_and_bh():
     assert a["expected"] == pytest.approx(2 * 5 / 10 + 4 * 2 / 20) and a["observed"] == 2
     q = A07.bh([0.01, None, 0.04, 0.03])
     assert q[1] is None and q[0] == pytest.approx(0.03)
+
+
+def test_uq_sample_config_is_valid(monkeypatch, tmp_path):
+    repo = Path(__file__).resolve().parents[1]
+    monkeypatch.setenv("PWD", str(tmp_path))
+    cfg = load_config(str(repo / "examples" / "uq" / "gwas2m-lncrna.uq.yaml"))
+    assert cfg.output_dir == (tmp_path / "results").resolve()
+    assert cfg.resources_dir == (tmp_path / "resources").resolve()
+    assert cfg.threads == 8 and cfg.jobs == 1

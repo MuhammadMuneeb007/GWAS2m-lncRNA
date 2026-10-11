@@ -1,0 +1,61 @@
+# =============================================================================
+# GWAS2m-lncRNA - sample configuration for the UQ HPC (SLURM, partition "general")
+#
+# Used automatically by the job scripts in examples/uq/ when you do not provide
+# your own configuration (GWAS2M_LNCRNA_CONFIG or ./gwas2m-lncrna.yaml).
+# Copy it and edit, or point GWAS2M_LNCRNA_CONFIG at your copy.
+#
+# Scheduler settings (partition, 24 h walltime, CPUs, memory) live in the job
+# scripts' #SBATCH lines, because gwas2m-lncrna never submits jobs itself.
+# Every value below is optional; anything removed falls back to the defaults
+# in `gwas2m-lncrna init`.
+# =============================================================================
+
+# Results and shared reference data go into the folder you submit the job from
+# (${PWD} is the job's working directory; the scripts cd to $SLURM_SUBMIT_DIR).
+# Use /scratch or a group project folder: reference data needs ~80 GB while the
+# VEP cache is unpacked and ~50 GB afterwards.
+output_dir: "${PWD}/results"
+resources_dir: "${PWD}/resources"
+
+# Matches #SBATCH --cpus-per-task=8 in the UQ job scripts.
+threads: 8
+# One study at a time keeps GWASLab QC within the 100 GB job memory.
+jobs: 1
+
+resources:
+  auto_download: true
+  download_workers: 4
+  keep_raw_1000g_vcf: true
+  delete_vep_archive: true
+  # Reuse an existing GWAS2m "resources" folder instead of downloading again, e.g.
+  #   ld_reference_dir: /path/to/GWAS2m/resources/1000G
+  #   vep_cache_dir:    /path/to/GWAS2m/resources/vep/cache
+  #   fasta:            /path/to/GWAS2m/resources/genome/GRCh38/GRCh38.primary_assembly.genome.fa
+  #   gencode_gtf:      /path/to/GWAS2m/resources/gencode/release50/gencode.v50.primary_assembly.annotation.gtf.gz
+  ld_reference_dir: null
+  vep_cache_dir: null
+  fasta: null
+  gencode_gtf: null
+
+# Scientific parameters: identical to the defaults used for the CAD/PD/AD study.
+discovery:
+  aliases: []
+  max_studies: 0
+qc:
+  p_threshold: 5.0e-8
+clumping:
+  p1: 5.0e-8
+  p2: 0.01
+  r2: 0.1
+  kb: 1000
+finemapping:
+  locus_window_kb: 1000
+  reference_maf: 0.01
+  max_ld_variants: 15000
+  coverage: 0.95
+annotation:
+  vep_cache_release: 116
+analysis:
+  permutations: 10000
+  seed: 42
